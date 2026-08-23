@@ -20,7 +20,7 @@ const TOOL_NAME = 'convert';
 const TOOL_SCHEMA = {
   name: TOOL_NAME,
   description:
-    'Convert a numeric value between units of the same dimension (length, mass, time, temperature).',
+    'Convert a numeric value between units of the same dimension (length, mass, time, temperature, area, volume).',
   inputSchema: {
     type: 'object',
     properties: {

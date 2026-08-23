@@ -60,9 +60,42 @@ test('non-finite value throws', () => {
   assert.throws(() => convert(Infinity, 'm', 'km'));
 });
 
+test('area: km2 to m2', () => {
+  const r = convert(1, 'km2', 'm2');
+  assert.equal(r.value, 1_000_000);
+  assert.equal(r.dimension, 'area');
+});
+
+test('area: acre to m2', () => {
+  const r = convert(1, 'acre', 'm2');
+  assert.ok(Math.abs(r.value - 4046.8564224) < 1e-9);
+});
+
+test('area: mi2 to acre', () => {
+  const r = convert(1, 'mi2', 'acre');
+  assert.ok(Math.abs(r.value - 640) < 1e-6);
+});
+
+test('volume: m3 to l', () => {
+  const r = convert(1, 'm3', 'l');
+  assert.equal(r.value, 1000);
+  assert.equal(r.dimension, 'volume');
+});
+
+test('volume: gal to l', () => {
+  const r = convert(1, 'gal', 'l');
+  assert.ok(Math.abs(r.value - 3.785411784) < 1e-9);
+});
+
+test('area and volume are different dimensions', () => {
+  assert.throws(() => convert(1, 'm2', 'l'));
+});
+
 test('dimensionOf finds the right dimension', () => {
   assert.equal(dimensionOf('kg'), 'mass');
   assert.equal(dimensionOf('ms'), 'time');
+  assert.equal(dimensionOf('m2'), 'area');
+  assert.equal(dimensionOf('l'), 'volume');
 });
 
 test('dimensionOf returns null for unknown units', () => {
@@ -75,6 +108,8 @@ test('supportedUnits lists every table entry plus the temperature units', () => 
   assert.ok(units.includes('km'));
   assert.ok(units.includes('lb'));
   assert.ok(units.includes('ms'));
+  assert.ok(units.includes('m2'));
+  assert.ok(units.includes('l'));
   assert.ok(units.includes('C'));
   assert.ok(units.includes('F'));
   assert.ok(units.includes('K'));
