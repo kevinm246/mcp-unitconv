@@ -8,16 +8,25 @@ import { convert, supportedUnits } from './units.ts';
  * dependency-free.
  */
 
-interface JsonRpcRequest {
+export interface JsonRpcRequest {
   jsonrpc: '2.0';
   id?: number | string | null;
   method: string;
   params?: Record<string, unknown>;
 }
 
-const TOOL_NAME = 'convert';
+// Response bodies get built the same way whether they go to real stdout or a
+// test's capture array, so every handler below takes the sink as a parameter
+// instead of writing to process.stdout directly.
+type Writer = (line: string) => void;
 
-const TOOL_SCHEMA = {
+const stdoutWriter: Writer = (line) => {
+  process.stdout.write(line);
+};
+
+export const TOOL_NAME = 'convert';
+
+export const TOOL_SCHEMA = {
   name: TOOL_NAME,
   description:
     'Convert a numeric value between units of the same dimension (length, mass, time, temperature, area, volume).',
@@ -32,39 +41,39 @@ const TOOL_SCHEMA = {
   },
 };
 
-function reply(id: JsonRpcRequest['id'], result: unknown): void {
+function reply(write: Writer, id: JsonRpcRequest['id'], result: unknown): void {
   if (id === undefined) return; // notifications carry no id and expect no response
-  process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\n');
+  write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\n');
 }
 
-function replyError(id: JsonRpcRequest['id'], code: number, message: string): void {
+function replyError(write: Writer, id: JsonRpcRequest['id'], code: number, message: string): void {
   if (id === undefined) return;
-  process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } }) + '\n');
+  write(JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } }) + '\n');
 }
 
-function handleToolCall(req: JsonRpcRequest): void {
+function handleToolCall(write: Writer, req: JsonRpcRequest): void {
   const params = req.params ?? {};
   if (params.name !== TOOL_NAME) {
-    replyError(req.id, -32602, `unknown tool: ${String(params.name)}`);
+    replyError(write, req.id, -32602, `unknown tool: ${String(params.name)}`);
     return;
   }
   const args = (params.arguments ?? {}) as Record<string, unknown>;
   try {
     const result = convert(Number(args.value), String(args.from), String(args.to));
-    reply(req.id, { content: [{ type: 'text', text: `${result.value} ${result.to}` }] });
+    reply(write, req.id, { content: [{ type: 'text', text: `${result.value} ${result.to}` }] });
   } catch (err) {
     // conversion failures are tool results, not protocol errors
-    reply(req.id, {
+    reply(write, req.id, {
       content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }],
       isError: true,
     });
   }
 }
 
-function handleRequest(req: JsonRpcRequest): void {
+export function handleRequest(req: JsonRpcRequest, write: Writer = stdoutWriter): void {
   switch (req.method) {
     case 'initialize':
-      reply(req.id, {
+      reply(write, req.id, {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
         serverInfo: { name: 'mcp-unitconv', version: '0.1.0' },
@@ -73,27 +82,29 @@ function handleRequest(req: JsonRpcRequest): void {
     case 'notifications/initialized':
       return;
     case 'tools/list':
-      reply(req.id, { tools: [TOOL_SCHEMA] });
+      reply(write, req.id, { tools: [TOOL_SCHEMA] });
       return;
     case 'tools/call':
-      handleToolCall(req);
+      handleToolCall(write, req);
       return;
     default:
-      replyError(req.id, -32601, `unknown method: ${req.method}`);
+      replyError(write, req.id, -32601, `unknown method: ${req.method}`);
   }
 }
 
-const rl = createInterface({ input: process.stdin });
-
-rl.on('line', (line) => {
+export function handleLine(line: string, write: Writer = stdoutWriter): void {
   const trimmed = line.trim();
   if (!trimmed) return;
   let req: JsonRpcRequest;
   try {
     req = JSON.parse(trimmed);
   } catch {
-    replyError(null, -32700, 'parse error');
+    replyError(write, null, -32700, 'parse error');
     return;
   }
-  handleRequest(req);
-});
+  handleRequest(req, write);
+}
+
+const rl = createInterface({ input: process.stdin });
+
+rl.on('line', (line) => handleLine(line));
