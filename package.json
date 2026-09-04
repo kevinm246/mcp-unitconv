@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "bin": { "mcp-unitconv": "dist/server.js" },
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "test": "node --test test/*.test.ts"
   },
   "devDependencies": { "typescript": "^5.7.2", "@types/node": "^22.10.2" },
