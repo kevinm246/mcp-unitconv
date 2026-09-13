@@ -39,6 +39,24 @@ units belong to different dimensions.
 npm test
 ```
 
+## Publishing
+
+The package is published as `mcp-unitconv`. `dist/` is built from `src/` and isn't
+committed; `files` in package.json restricts what npm packs to `dist` (which
+includes the `.d.ts` files `tsc` emits alongside the `.js`), so there's no need
+for a separate `.npmignore`.
+
+To cut a release:
+
+```bash
+npm version patch   # or minor / major
+npm publish
+```
+
+`npm version` bumps the version in package.json and tags the commit;
+`prepare` runs the build automatically before publish, so `dist/` is always
+current. Push the tag afterward with `git push --follow-tags`.
+
 ## License
 
 MIT
