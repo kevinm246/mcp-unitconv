@@ -92,17 +92,37 @@ export function handleRequest(req: JsonRpcRequest, write: Writer = stdoutWriter)
   }
 }
 
+function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
+  // JSON.parse can hand back a primitive or null (e.g. the line "null" or
+  // "42" is valid JSON); handleRequest assumes an object with a string
+  // method, so anything else must be rejected here rather than crashing on
+  // property access below.
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).method === 'string'
+  );
+}
+
 export function handleLine(line: string, write: Writer = stdoutWriter): void {
   const trimmed = line.trim();
   if (!trimmed) return;
-  let req: JsonRpcRequest;
+  let parsed: unknown;
   try {
-    req = JSON.parse(trimmed);
+    parsed = JSON.parse(trimmed);
   } catch {
     replyError(write, null, -32700, 'parse error');
     return;
   }
-  handleRequest(req, write);
+  if (!isJsonRpcRequest(parsed)) {
+    const id = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) && 'id' in parsed
+      ? (parsed as { id?: JsonRpcRequest['id'] }).id
+      : null;
+    replyError(write, id ?? null, -32600, 'invalid request');
+    return;
+  }
+  handleRequest(parsed, write);
 }
 
 const rl = createInterface({ input: process.stdin });

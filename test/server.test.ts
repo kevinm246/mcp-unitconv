@@ -102,6 +102,30 @@ test('handleLine reports a parse error for invalid JSON', () => {
   assert.equal(msg.error.code, -32700);
 });
 
+test('handleLine reports invalid request for valid JSON that is not an RPC object', () => {
+  const { lines, write } = capture();
+  handleLine('null', write);
+  const msg = parseOne(lines);
+  assert.equal(msg.id, null);
+  assert.equal(msg.error.code, -32600);
+});
+
+test('handleLine reports invalid request for a JSON array', () => {
+  const { lines, write } = capture();
+  handleLine('[1, 2, 3]', write);
+  const msg = parseOne(lines);
+  assert.equal(msg.id, null);
+  assert.equal(msg.error.code, -32600);
+});
+
+test('handleLine reports invalid request for an object missing method, keeping its id', () => {
+  const { lines, write } = capture();
+  handleLine(JSON.stringify({ jsonrpc: '2.0', id: 8 }), write);
+  const msg = parseOne(lines);
+  assert.equal(msg.id, 8);
+  assert.equal(msg.error.code, -32600);
+});
+
 test('handleLine parses and dispatches a well-formed request', () => {
   const { lines, write } = capture();
   handleLine(JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'tools/list' }), write);
